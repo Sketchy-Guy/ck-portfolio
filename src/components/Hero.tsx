@@ -300,7 +300,7 @@ const Hero = () => {
               <div className="w-full h-full rounded-full bg-portfolio-purple opacity-5 animate-spin-slow blur-3xl"></div>
             </div>
             {/* Profile image with higher z-index, responsive size */}
-            <div className="w-24 h-24 sm:w-32 sm:h-32 md:w-44 md:h-44 lg:w-56 lg:h-56 mx-auto relative z-10 animate-float">
+            <div className="w-40 h-40 sm:w-48 sm:h-48 md:w-56 md:h-56 lg:w-72 lg:h-72 mx-auto relative z-10 animate-float">
               {!imageLoaded && profileImage && !imageError && (
                 <div className="absolute inset-0 flex items-center justify-center rounded-full bg-gray-100">
                   <div className="animate-spin h-12 w-12 border-4 border-portfolio-purple border-t-transparent rounded-full"></div>
