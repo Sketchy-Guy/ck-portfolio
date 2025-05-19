@@ -120,20 +120,28 @@ const Hero = () => {
     fetchCounts();
   }, []);
 
-  // Increment visit count only once per device
+  // Increment visit count only once per device and fetch updated value
   useEffect(() => {
-    if (!localStorage.getItem(VISIT_KEY)) {
-      supabase
-        .from("site_likes" as any)
-        .update({ visits: visitCount + 1 })
-        .eq("id", SITE_LIKES_ID)
-        .then(() => {
-          setVisitCount((v) => v + 1);
-          localStorage.setItem(VISIT_KEY, "1");
-        });
-    }
+    const incrementAndFetchVisits = async () => {
+      if (!localStorage.getItem(VISIT_KEY)) {
+        // Increment visits in DB
+       await supabase
+          .from("site_likes" as any)
+          .update({ visits: visitCount + 1 })
+          .eq("id", SITE_LIKES_ID);
+        const { data, error } = await supabase
+          .from("site_likes" as any)
+          .select("visits")
+          .eq("id", SITE_LIKES_ID)
+          .single();
+        if (!error && data) {
+          setVisitCount((data as any).visits || 0);
+        }
+      }
+    };
+    incrementAndFetchVisits();
     // eslint-disable-next-line
-  }, [visitCount]);
+  }, []);
 
   // Typing effect for the profile title
   useEffect(() => {
