@@ -143,12 +143,23 @@ const Hero = () => {
     const alreadyVisited = localStorage.getItem(VISIT_KEY) || Cookies.get(VISIT_KEY);
     if (!alreadyVisited) {
       const incrementVisits = async () => {
-        await supabase
+        // 1. Fetch the latest visits count from DB
+        const { data, error } = await supabase
           .from("site_likes" as any)
-          .update({ visits: visitCount + 1 })
-          .eq("id", SITE_LIKES_ID);
-        localStorage.setItem(VISIT_KEY, "1");
-        Cookies.set(VISIT_KEY, "1", { expires: 365 });
+          .select("visits")
+          .eq("id", SITE_LIKES_ID)
+          .single();
+        if (!error && data) {
+          const latestVisits = (data as any).visits || 0;
+          // 2. Increment in DB using the latest value
+          await supabase
+            .from("site_likes" as any)
+            .update({ visits: latestVisits + 1 })
+            .eq("id", SITE_LIKES_ID);
+          // 3. Set local/cookie so it only happens once
+          localStorage.setItem(VISIT_KEY, "1");
+          Cookies.set(VISIT_KEY, "1", { expires: 365 });
+        }
       };
       incrementVisits();
     }
