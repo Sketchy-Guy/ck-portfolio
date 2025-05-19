@@ -39,7 +39,7 @@ const Header = () => {
 	return (
 		<>
 			<header
-				className="sticky top-0 left-0 w-full z-50 transition-all duration-300 backdrop-blur-lg"
+				className="sticky top-0 left-0 w-full z-50 transition-all duration-300 backdrop-blur-lg min-h-[4.5rem]"
 				style={{
 					background: "rgba(255,255,255,0.35)",
 					WebkitBackdropFilter: "blur(12px)",
@@ -47,8 +47,8 @@ const Header = () => {
 					borderBottom: "1px solid rgba(0,0,0,0.05)",
 				}}
 			>
-				<div className="container mx-auto px-4">
-					<div className="flex justify-between items-center">
+				<div className="container mx-auto px-4 py-3">
+					<div className="flex justify-between items-center min-h-[4.5rem]">
 						<a
 							href="#"
 							className="text-2xl font-bold text-portfolio-purple transition-colors duration-300"
@@ -81,7 +81,16 @@ const Header = () => {
 							))}
 
 							<Button
-								className="bg-portfolio-purple hover:bg-portfolio-purple/90"
+								className="bg-[#8e2de2] text-white font-semibold px-6 py-2 rounded-full
+        shadow-[0_0_10px_#8e2de2,0_0_20px_#4a00e0]
+        hover:shadow-[0_0_20px_#8e2de2,0_0_40px_#4a00e0]
+        hover:scale-105
+        transition-all duration-300
+        animate-pulse"
+								style={{
+									background: "#8e2de2",
+									boxShadow: "0 0 10px #8e2de2, 0 0 20px #4a00e0",
+								}}
 								onClick={() => (window.location.href = "#contact")}
 							>
 								Hire Me

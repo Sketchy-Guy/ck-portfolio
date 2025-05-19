@@ -295,7 +295,6 @@ const Hero = () => {
           </div>
           {/* Right: Profile Image, Like & Visitor Counter */}
           <div className="w-full lg:w-1/2 relative z-10 mb-8 lg:mb-0 flex flex-col items-center gap-y-6">
-            {/* Gradient background with lower z-index */}
             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full max-w-[10rem] sm:max-w-[14rem] md:max-w-[18rem] lg:max-w-[20rem] max-h-[10rem] sm:max-h-[14rem] md:max-h-[18rem] lg:max-h-[20rem] z-0 pointer-events-none">
               <div className="w-full h-full rounded-full bg-portfolio-purple opacity-5 animate-spin-slow blur-3xl"></div>
             </div>
