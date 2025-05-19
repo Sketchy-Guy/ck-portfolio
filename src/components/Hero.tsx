@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Download, Github, Linkedin, Twitter, Instagram, Facebook, Heart } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import Cookies from "js-cookie"; // npm install js-cookie
 
 // Supabase constants
 const SUPABASE_URL = "https://lvjfqefqrmgzwkhtknbj.supabase.co";
@@ -120,28 +121,39 @@ const Hero = () => {
     fetchCounts();
   }, []);
 
-  // Increment visit count only once per device and fetch updated value
+  // Live polling for visitors count every 5 seconds
   useEffect(() => {
-    const incrementAndFetchVisits = async () => {
-      if (!localStorage.getItem(VISIT_KEY)) {
-        // Increment visits in DB
-       await supabase
+    const fetchVisitors = async () => {
+      const { data, error } = await supabase
+        .from("site_likes" as any)
+        .select("visits")
+        .eq("id", SITE_LIKES_ID)
+        .single();
+      if (!error && data) {
+        setVisitCount((data as any).visits || 0);
+      }
+    };
+    fetchVisitors();
+    const interval = setInterval(fetchVisitors, 5000); // Poll every 5 seconds
+    return () => clearInterval(interval);
+  }, []);
+
+  // Increment visit count only once per device (localStorage + cookie)
+  useEffect(() => {
+    const alreadyVisited = localStorage.getItem(VISIT_KEY) || Cookies.get(VISIT_KEY);
+    if (!alreadyVisited) {
+      const incrementVisits = async () => {
+        await supabase
           .from("site_likes" as any)
           .update({ visits: visitCount + 1 })
           .eq("id", SITE_LIKES_ID);
-        const { data, error } = await supabase
-          .from("site_likes" as any)
-          .select("visits")
-          .eq("id", SITE_LIKES_ID)
-          .single();
-        if (!error && data) {
-          setVisitCount((data as any).visits || 0);
-        }
-      }
-    };
-    incrementAndFetchVisits();
+        localStorage.setItem(VISIT_KEY, "1");
+        Cookies.set(VISIT_KEY, "1", { expires: 365 });
+      };
+      incrementVisits();
+    }
     // eslint-disable-next-line
-  }, []);
+  }, [visitCount]);
 
   // Typing effect for the profile title
   useEffect(() => {
@@ -160,11 +172,12 @@ const Hero = () => {
     return () => clearInterval(typingInterval);
   }, [profileTitle]);
 
-  // Like button handler
+  // Like button handler: prevent multiple likes per device (localStorage + cookie)
   const handleLike = async () => {
     setLikeError("");
-    if (localStorage.getItem(LIKE_KEY)) {
-      setLikeError("Multiple likes from same device are not allowed");
+    const alreadyLiked = localStorage.getItem(LIKE_KEY) || Cookies.get(LIKE_KEY);
+    if (alreadyLiked) {
+      setLikeError("Multiple likes from the same device are not allowed");
       return;
     }
     const { data, error } = await supabase
@@ -176,6 +189,7 @@ const Hero = () => {
     if (!error && data) {
       setLikeCount((data as any).count);
       localStorage.setItem(LIKE_KEY, "1");
+      Cookies.set(LIKE_KEY, "1", { expires: 365 });
     }
   };
 
