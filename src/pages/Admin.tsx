@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
@@ -12,6 +11,8 @@ import { SkillsManager } from "@/components/admin/SkillsManager";
 import { ProjectsManager } from "@/components/admin/ProjectsManager";
 import { CertificationsManager } from "@/components/admin/CertificationsManager";
 import { forceAdminAccess } from '@/utils/auth';
+import Player from "lottie-react";
+import logoutLottie from "@/assets/lottie/logout-lottie.json";
 
 const Admin = () => {
   const { isAdmin, user, isLoading, signOut, checkAdminStatus } = useAuth();
@@ -145,13 +146,20 @@ const Admin = () => {
                 Logged in as: {user.email}
               </span>
             )}
-            <Button 
-              variant="ghost" 
-              onClick={signOut} 
-              className="text-white hover:text-white hover:bg-portfolio-purple/80"
+            <div
+              className="cursor-pointer flex items-center"
+              title="Logout"
+              onClick={signOut}
             >
-              <LogOut className="mr-2 h-4 w-4" /> Logout
-            </Button>
+              <Player
+                autoplay
+                loop
+                animationData={logoutLottie}
+                style={{ height: 40, width: 40 }}
+                className="hover:scale-110 transition-transform"
+              />
+              <span className="ml-2 hidden md:inline-block">Logout</span>
+            </div>
           </motion.div>
         </div>
       </header>
