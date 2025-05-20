@@ -178,3 +178,16 @@
 .animate-heartbeat {
   animation: heartbeat 0.5s cubic-bezier(.4,2,.6,1) 1;
 }
+
+.wobble-animation {
+  display: inline-block;
+  animation: wobble 1.2s infinite;
+}
+@keyframes wobble {
+  0%, 100% { transform: rotate(0deg) scale(1); }
+  15% { transform: rotate(-10deg) scale(1.05); }
+  30% { transform: rotate(8deg) scale(1.08); }
+  45% { transform: rotate(-6deg) scale(1.1); }
+  60% { transform: rotate(4deg) scale(1.08); }
+  75% { transform: rotate(-2deg) scale(1.05); }
+}

@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Download, Github, Linkedin, Twitter, Instagram, Facebook, Heart } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import Cookies from "js-cookie"; // npm install js-cookie
+import "./HeroGradient.css"; // <-- create this file as shown below
 
 // Supabase constants
 const SUPABASE_URL = "https://lvjfqefqrmgzwkhtknbj.supabase.co";
@@ -224,7 +225,9 @@ const Hero = () => {
             <h3 className="text-base sm:text-lg md:text-2xl font-medium text-portfolio-teal mb-2 leading-relaxed">
               Hello, I'm
             </h3>
-            <h1 className="text-2xl sm:text-4xl md:text-6xl lg:text-7xl font-bold mb-4 gradient-text leading-tight break-words w-full">
+            <h1
+              className="animated-gradient-text text-2xl sm:text-4xl md:text-6xl lg:text-7xl font-bold mb-4 leading-tight break-words w-full"
+            >
               Chinmay Kumar Panda
             </h1>
             <h2 className="text-sm sm:text-lg md:text-2xl font-medium text-gray-600 dark:text-gray-300 mb-6 leading-relaxed break-words w-full">
