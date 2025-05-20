@@ -1,5 +1,4 @@
-
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { usePortfolioData } from "@/contexts/DataContext";
 import { SkillData } from "@/types/portfolio";
 import { Button } from "@/components/ui/button";
@@ -22,9 +21,7 @@ import { useForm } from "react-hook-form";
 import * as z from "zod";
 import { Trash2 } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
-import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
-import { PostgrestError } from "@supabase/supabase-js";
 
 const skillSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),
@@ -32,12 +29,14 @@ const skillSchema = z.object({
   level: z.number().min(0).max(100),
 });
 
+const PROFILE_ID = "10f6f545-cd03-4b5f-bbf4-96dc44158959";
+
 export function SkillsManager() {
   const { data, updateSkill, addSkill, removeSkill, fetchPortfolioData } = usePortfolioData();
   const { toast } = useToast();
-  const { user } = useAuth();
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
-  
+  const [initialInsertDone, setInitialInsertDone] = useState(false);
+
   const form = useForm<z.infer<typeof skillSchema>>({
     resolver: zodResolver(skillSchema),
     defaultValues: {
@@ -46,68 +45,70 @@ export function SkillsManager() {
       level: 50,
     },
   });
-  
-  const handleSave = async (values: z.infer<typeof skillSchema>, index: number) => {
-    const isValid = await form.trigger();
-    if (!isValid) {
-      toast({
-        title: "Error",
-        description: "Please fill in all fields correctly.",
-        variant: "destructive"
-      });
-      return;
-    }
-    
-    // Create a complete SkillData object to ensure all required properties are present
-    const updatedSkill: SkillData = {
-      name: values.name,
-      category: values.category,
-      level: values.level
-    };
-    
-    try {
-      if (user) {
-        // Optimistically update the local state
-        updateSkill(index, updatedSkill);
-        
-        // Prepare the data for Supabase update
-        const skillToUpdate = data.skills[index];
-        
-        const { error } = await supabase
-          .from('skills')
-          .update({
-            name: updatedSkill.name,
-            category: updatedSkill.category,
-            level: updatedSkill.level,
-            updated_at: new Date().toISOString(),
-          })
-          .eq('profile_id', user.id)
-          .eq('name', skillToUpdate.name);
-        
-        if (error) {
-          throw error;
-        }
-        
-        // After successfully saving to Supabase, fetch the latest data
-        await fetchPortfolioData();
-        
+
+  // Insert all existing skills in the database on first mount (if not already present)
+  useEffect(() => {
+    const insertExistingSkills = async () => {
+      if (!data.skills || data.skills.length === 0 || initialInsertDone) return;
+
+      // Check which skills already exist in the DB
+      const { data: dbSkills, error } = await supabase
+        .from("skills")
+        .select("name, category, level")
+        .eq("profile_id", PROFILE_ID);
+
+      if (error) {
         toast({
-          title: "Skill Updated",
-          description: "Skill has been successfully updated.",
+          title: "Error",
+          description: "Could not fetch skills from database.",
+          variant: "destructive",
         });
+        return;
       }
-    } catch (error: any) {
-      console.error("Error saving skill:", error);
-      toast({
-        title: "Update Failed",
-        description: error.message || "There was an error updating the skill.",
-        variant: "destructive"
-      });
-    } finally {
-      setEditingIndex(null);
-    }
-  };
-  
+
+      // Find skills not in DB
+      const dbSkillsSet = new Set(
+        (dbSkills || []).map(
+          (s) => `${s.name}|${s.category}|${s.level}`
+        )
+      );
+      const skillsToInsert = data.skills.filter(
+        (s) => !dbSkillsSet.has(`${s.name}|${s.category}|${s.level}`)
+      );
+
+      if (skillsToInsert.length > 0) {
+        const insertPayload = skillsToInsert.map((s) => ({
+          name: s.name,
+          category: s.category,
+          level: s.level,
+          profile_id: PROFILE_ID,
+        }));
+        const { error: insertError } = await supabase
+          .from("skills")
+          .insert(insertPayload);
+
+        if (insertError) {
+          toast({
+            title: "Error",
+            description: "Could not insert some existing skills.",
+            variant: "destructive",
+          });
+        } else {
+          toast({
+            title: "Skills Synced",
+            description: "Existing skills have been inserted into the database.",
+          });
+          await fetchPortfolioData();
+        }
+      }
+      setInitialInsertDone(true);
+    };
+
+    insertExistingSkills();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data.skills]);
+
+  // Add Skill
   const handleAdd = async (values: z.infer<typeof skillSchema>) => {
     const isValid = await form.trigger();
     if (!isValid) {
@@ -118,41 +119,33 @@ export function SkillsManager() {
       });
       return;
     }
-    
-    // Create a SkillData object with required fields
+
     const newSkill: SkillData = {
       name: values.name,
       category: values.category,
       level: values.level
     };
-    
+
     try {
-      if (user) {
-        // Optimistically update the local state
-        addSkill(newSkill);
-        
-        // Prepare the data for Supabase insert
-        const { error } = await supabase
-          .from('skills')
-          .insert({
-            name: newSkill.name,
-            category: newSkill.category,
-            level: newSkill.level,
-            profile_id: user.id,
-          } as any); // Use type assertion as temporary solution
-        
-        if (error) {
-          throw error;
-        }
-        
-        // After successfully saving to Supabase, fetch the latest data
-        await fetchPortfolioData();
-        
-        toast({
-          title: "Skill Added",
-          description: "Skill has been successfully added.",
+      addSkill(newSkill);
+
+      const { error } = await supabase
+        .from('skills')
+        .insert({
+          name: newSkill.name,
+          category: newSkill.category,
+          level: newSkill.level,
+          profile_id: PROFILE_ID,
         });
-      }
+
+      if (error) throw error;
+
+      await fetchPortfolioData();
+
+      toast({
+        title: "Skill Added",
+        description: "Skill has been successfully added.",
+      });
     } catch (error: any) {
       console.error("Error adding skill:", error);
       toast({
@@ -164,33 +157,81 @@ export function SkillsManager() {
       form.reset();
     }
   };
-  
+
+  // Edit/Save Skill
+  const handleSave = async (values: z.infer<typeof skillSchema>, index: number) => {
+    const isValid = await form.trigger();
+    if (!isValid) {
+      toast({
+        title: "Error",
+        description: "Please fill in all fields correctly.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const updatedSkill: SkillData = {
+      name: values.name,
+      category: values.category,
+      level: values.level
+    };
+
+    try {
+      updateSkill(index, updatedSkill);
+
+      const skillToUpdate = data.skills[index];
+
+      const { error } = await supabase
+        .from('skills')
+        .update({
+          name: updatedSkill.name,
+          category: updatedSkill.category,
+          level: updatedSkill.level,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('profile_id', PROFILE_ID)
+        .eq('name', skillToUpdate.name);
+
+      if (error) throw error;
+
+      await fetchPortfolioData();
+
+      toast({
+        title: "Skill Updated",
+        description: "Skill has been successfully updated.",
+      });
+    } catch (error: any) {
+      console.error("Error saving skill:", error);
+      toast({
+        title: "Update Failed",
+        description: error.message || "There was an error updating the skill.",
+        variant: "destructive"
+      });
+    } finally {
+      setEditingIndex(null);
+    }
+  };
+
+  // Delete Skill
   const handleDelete = async (index: number) => {
     try {
-      if (user) {
-        // Optimistically update the local state
-        const skillToDelete = data.skills[index];
-        removeSkill(index);
-        
-        // Delete from Supabase
-        const { error } = await supabase
-          .from('skills')
-          .delete()
-          .eq('profile_id', user.id as any) // Use type assertion
-          .eq('name', skillToDelete.name as any); // Use type assertion
-        
-        if (error) {
-          throw error;
-        }
-        
-        // After successfully deleting from Supabase, fetch the latest data
-        await fetchPortfolioData();
-        
-        toast({
-          title: "Skill Deleted",
-          description: "Skill has been successfully deleted.",
-        });
-      }
+      const skillToDelete = data.skills[index];
+      removeSkill(index);
+
+      const { error } = await supabase
+        .from('skills')
+        .delete()
+        .eq('profile_id', PROFILE_ID)
+        .eq('name', skillToDelete.name);
+
+      if (error) throw error;
+
+      await fetchPortfolioData();
+
+      toast({
+        title: "Skill Deleted",
+        description: "Skill has been successfully deleted.",
+      });
     } catch (error: any) {
       console.error("Error deleting skill:", error);
       toast({
@@ -223,7 +264,7 @@ export function SkillsManager() {
                   </FormItem>
                 )}
               />
-              
+
               <FormField
                 control={form.control}
                 name="category"
@@ -238,7 +279,7 @@ export function SkillsManager() {
                 )}
               />
             </div>
-            
+
             <FormField
               control={form.control}
               name="level"
@@ -263,7 +304,7 @@ export function SkillsManager() {
                 </FormItem>
               )}
             />
-            
+
             <Button 
               type="submit" 
               className="bg-portfolio-purple hover:bg-portfolio-purple/90 transition-all duration-300 transform hover:scale-105"
@@ -272,7 +313,7 @@ export function SkillsManager() {
             </Button>
           </form>
         </Form>
-        
+
         <div className="mt-8">
           <h3 className="text-lg font-semibold mb-4">Existing Skills</h3>
           <AnimatePresence>
@@ -305,7 +346,7 @@ export function SkillsManager() {
                           </FormItem>
                         )}
                       />
-                      
+
                       <FormField
                         control={form.control}
                         name="category"
@@ -323,7 +364,7 @@ export function SkillsManager() {
                           </FormItem>
                         )}
                       />
-                      
+
                       <FormField
                         control={form.control}
                         name="level"
@@ -348,7 +389,7 @@ export function SkillsManager() {
                           </FormItem>
                         )}
                       />
-                      
+
                       <div className="flex justify-end gap-2">
                         <Button 
                           type="submit" 

@@ -1,5 +1,5 @@
-
 import { useState, useEffect } from "react";
+import { supabase } from "@/integrations/supabase/client";
 
 interface Skill {
   name: string;
@@ -7,56 +7,46 @@ interface Skill {
   level: number;
 }
 
-const skillData: Skill[] = [
-  { name: "Python", category: "Programming Languages", level: 90 },
-  { name: "JavaScript", category: "Programming Languages", level: 85 },
-  { name: "Java", category: "Programming Languages", level: 75 },
-  { name: "C", category: "Programming Languages", level: 70 },
-  { name: "MySQL", category: "Databases", level: 80 },
-  { name: "Firebase", category: "Databases", level: 75 },
-  { name: "MongoDB", category: "Databases", level: 70 },
-  { name: "HTML", category: "Web Development", level: 95 },
-  { name: "CSS", category: "Web Development", level: 90 },
-  { name: "React.js", category: "Web Development", level: 85 },
-  { name: "Node.js", category: "Web Development", level: 80 },
-  { name: "Git", category: "Tools & Platforms", level: 85 },
-  { name: "VS Code", category: "Tools & Platforms", level: 95 },
-  { name: "Figma", category: "Tools & Platforms", level: 75 },
-  { name: "Canva", category: "Tools & Platforms", level: 90 },
-  { name: "Data Structures", category: "Technical Skills", level: 85 },
-  { name: "Algorithms", category: "Technical Skills", level: 80 },
-  { name: "AI Prompting", category: "AI & ML", level: 90 },
-  { name: "OpenAI/Gemini APIs", category: "AI & ML", level: 85 },
-  { name: "Machine Learning", category: "AI & ML", level: 75 },
-  { name: "Team Leadership", category: "Soft Skills", level: 90 },
-  { name: "Communication", category: "Soft Skills", level: 85 },
-  { name: "Project Coordination", category: "Soft Skills", level: 90 },
-  { name: "Public Speaking", category: "Soft Skills", level: 80 },
-];
+const PROFILE_ID = "10f6f545-cd03-4b5f-bbf4-96dc44158959";
 
 const Skills = () => {
+  const [skills, setSkills] = useState<Skill[]>([]);
   const [activeCategory, setActiveCategory] = useState("All");
-  const [filteredSkills, setFilteredSkills] = useState<Skill[]>(skillData);
+  const [filteredSkills, setFilteredSkills] = useState<Skill[]>([]);
   const [isAnimated, setIsAnimated] = useState(false);
-  
-  const categories = ["All", ...Array.from(new Set(skillData.map(skill => skill.category)))];
-  
+
+  // Fetch skills from Supabase
+  useEffect(() => {
+    const fetchSkills = async () => {
+      const { data, error } = await supabase
+        .from("skills")
+        .select("name, category, level")
+        .eq("profile_id", PROFILE_ID);
+
+      if (!error && data) {
+        setSkills(data);
+      }
+    };
+    fetchSkills();
+  }, []);
+
+  // Categories based on fetched skills
+  const categories = ["All", ...Array.from(new Set(skills.map(skill => skill.category)))];
+
+  // Filter skills by category
   useEffect(() => {
     if (activeCategory === "All") {
-      setFilteredSkills(skillData);
+      setFilteredSkills(skills);
     } else {
-      setFilteredSkills(skillData.filter(skill => skill.category === activeCategory));
+      setFilteredSkills(skills.filter(skill => skill.category === activeCategory));
     }
-    
-    // Reset animation state
+
     setIsAnimated(false);
     const timer = setTimeout(() => setIsAnimated(true), 100);
-    
     return () => clearTimeout(timer);
-  }, [activeCategory]);
-  
+  }, [activeCategory, skills]);
+
   useEffect(() => {
-    // Start animation when component mounts
     const timer = setTimeout(() => setIsAnimated(true), 500);
     return () => clearTimeout(timer);
   }, []);
