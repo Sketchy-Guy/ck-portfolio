@@ -7,6 +7,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 
 const CONTACT_ID = "10f6f545-cd03-4b5f-bbf4-96dc44158959";
+const WEB3FORMS_ACCESS_KEY = "c76dd53d-f7ed-4b94-82fd-c585381f51f6";
 
 const Contact = () => {
   const [formData, setFormData] = useState({
@@ -49,11 +50,31 @@ const Contact = () => {
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
 
-    setTimeout(() => {
+    const response = await fetch("https://api.web3forms.com/submit", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+      body: JSON.stringify({
+        access_key: WEB3FORMS_ACCESS_KEY,
+        from_name: "Chinmay Kumar Panda",
+        from_email: "chinmaykumarpanda01@gmail.com",
+        replyto: formData.email,
+        subject: formData.subject,
+        name: formData.name,
+        email: formData.email,
+        message: formData.message,
+      }),
+    });
+
+    const result = await response.json();
+
+    if (result.success) {
       toast({
         title: "Message Sent",
         description: "Thank you for your message! I'll get back to you soon.",
@@ -64,8 +85,14 @@ const Contact = () => {
         subject: "",
         message: "",
       });
-      setIsSubmitting(false);
-    }, 1500);
+    } else {
+      toast({
+        title: "Error",
+        description: "There was an error sending your message. Please try again.",
+        variant: "destructive",
+      });
+    }
+    setIsSubmitting(false);
   };
 
   return (
