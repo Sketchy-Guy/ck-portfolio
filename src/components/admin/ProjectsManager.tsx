@@ -1,7 +1,4 @@
-
 import { useState, useEffect } from "react";
-import { usePortfolioData } from "@/contexts/DataContext";
-import { ProjectData } from "@/types/portfolio";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -23,8 +20,9 @@ import { motion } from "framer-motion";
 import { Trash2, Upload, Edit, X, AlertCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { uploadFile } from "@/utils/storage";
 import { toast } from "sonner";
+
+const PROFILE_ID = "10f6f545-cd03-4b5f-bbf4-96dc44158959";
 
 const projectSchema = z.object({
   title: z.string().min(2, "Title must be at least 2 characters"),
@@ -35,22 +33,54 @@ const projectSchema = z.object({
   image_url: z.string().optional(),
 });
 
+interface ProjectData {
+  id: string;
+  title: string;
+  description: string;
+  technologies: string[];
+  image: string;
+  github: string;
+  demo: string;
+}
+
 export function ProjectsManager() {
-  const { data, updateProject, addProject, removeProject, fetchPortfolioData } = usePortfolioData();
-  const { toast: uiToast } = useToast();
   const { user } = useAuth();
-  const [projects, setProjects] = useState<ProjectData[]>(data.projects);
+  const [projects, setProjects] = useState<ProjectData[]>([]);
   const [newProjectImage, setNewProjectImage] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState("");
   const [isEditing, setIsEditing] = useState(false);
   const [editingProjectId, setEditingProjectId] = useState<string | null>(null);
-  const [editingProjectIndex, setEditingProjectIndex] = useState<number>(-1);
-  
+  const [pendingImageFile, setPendingImageFile] = useState<File | null>(null);
+
+  // Fetch projects from DB on mount and after CRUD
+  const fetchProjects = async () => {
+    const { data, error } = await supabase
+      .from("projects")
+      .select("*")
+      .eq("profile_id", PROFILE_ID)
+      .order("created_at", { ascending: false });
+
+    if (!error && data) {
+      // Map DB fields to ProjectData interface
+      setProjects(
+        data.map((p) => ({
+          id: p.id,
+          title: p.title,
+          description: p.description,
+          technologies: p.technologies || [],
+          image: p.image_url || "",
+          github: p.github_url || "",
+          demo: p.demo_url || "",
+        }))
+      );
+    }
+  };
+
   useEffect(() => {
-    setProjects(data.projects);
-  }, [data.projects]);
-  
+    fetchProjects();
+  }, []);
+
   const form = useForm<z.infer<typeof projectSchema>>({
     resolver: zodResolver(projectSchema),
     defaultValues: {
@@ -75,21 +105,14 @@ export function ProjectsManager() {
     setNewProjectImage(null);
     setIsEditing(false);
     setEditingProjectId(null);
-    setEditingProjectIndex(-1);
     setUploadError("");
+    setPendingImageFile(null);
   };
 
   const handleEditProject = (project: ProjectData) => {
-    console.log("Editing project:", project);
     setIsEditing(true);
     setEditingProjectId(project.id);
-    
-    // Find the index of the project in the array
-    const projectIndex = projects.findIndex(p => p.id === project.id);
-    setEditingProjectIndex(projectIndex);
-    
     setNewProjectImage(project.image || null);
-    
     form.reset({
       title: project.title,
       description: project.description,
@@ -100,44 +123,23 @@ export function ProjectsManager() {
     });
   };
 
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Only set the file, don't upload yet
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
-    
-    const file = files[0];
-    setUploading(true);
+    setPendingImageFile(files[0]);
     setUploadError("");
-    
-    try {
-      if (!user) {
-        throw new Error("You must be logged in to upload an image");
-      }
-      
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        throw new Error("Your session has expired. Please log in again.");
-      }
-      
-      const filePath = `projects/${user.id}/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
-      console.log("Uploading project image to path:", filePath);
-      
-      const result = await uploadFile(file, filePath);
-      
-      if (!result.success) {
-        throw new Error(result.message || "Upload failed");
-      }
-      
-      setNewProjectImage(result.path);
-      form.setValue('image_url', result.path || '');
-      
-      toast.success('Image uploaded successfully');
-    } catch (error: any) {
-      console.error("Error uploading image:", error);
-      setUploadError(error.message || "Failed to upload image");
-      toast.error('Upload failed: ' + error.message);
-    } finally {
-      setUploading(false);
-    }
+    setNewProjectImage(""); // Clear preview until upload
+  };
+
+  // Upload image and return public URL
+  const uploadImageAndGetUrl = async (file: File) => {
+    const filePath = `projects/${PROFILE_ID}/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
+    const { error } = await supabase.storage
+      .from("portfolio")
+      .upload(filePath, file, { upsert: true });
+    if (error) throw error;
+    return supabase.storage.from("portfolio").getPublicUrl(filePath).data.publicUrl;
   };
 
   const handleSubmit = async (values: z.infer<typeof projectSchema>) => {
@@ -146,84 +148,76 @@ export function ProjectsManager() {
         toast.error('You must be logged in to save projects');
         return;
       }
-      
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        toast.error("Your session has expired. Please log in again.");
+      // Don't allow empty title or description
+      if (!values.title.trim() || !values.description.trim()) {
+        toast.error("Please fill in all required project details.");
         return;
       }
-      
+
+      let imageUrl = values.image_url || "";
+      if (pendingImageFile) {
+        setUploading(true);
+        imageUrl = await uploadImageAndGetUrl(pendingImageFile);
+        setUploading(false);
+      }
+
       const technologiesArray = values.technologies?.split(',').map(tech => tech.trim()).filter(tech => tech) || [];
-      
-      if (isEditing && editingProjectId && editingProjectIndex >= 0) {
-        console.log(`Updating project with ID: ${editingProjectId} at index ${editingProjectIndex}`);
-        
-        // Create a new project object
-        const updatedProject: ProjectData = {
-          id: editingProjectId,
-          title: values.title,
-          description: values.description,
-          technologies: technologiesArray,
-          image: newProjectImage || values.image_url || '',
-          github: values.github_url || '',
-          demo: values.demo_url || ''
-        };
-        
-        // Update project using DataContext's function
-        await updateProject(editingProjectIndex, updatedProject);
+
+      if (isEditing && editingProjectId) {
+        // Update in DB
+        const { error } = await supabase
+          .from("projects")
+          .update({
+            title: values.title,
+            description: values.description,
+            technologies: technologiesArray,
+            github_url: values.github_url || "",
+            demo_url: values.demo_url || "",
+            image_url: imageUrl,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", editingProjectId)
+          .eq("profile_id", PROFILE_ID);
+        if (error) throw error;
         toast.success('Project updated successfully');
       } else {
-        // Generate a temporary id for new project
-        const tempId = Date.now().toString();
-        
-        // Create project object
-        const newProject: ProjectData = {
-          id: tempId,
-          title: values.title,
-          description: values.description,
-          technologies: technologiesArray,
-          image: newProjectImage || values.image_url || '',
-          github: values.github_url || '',
-          demo: values.demo_url || ''
-        };
-        
-        // Add project using DataContext's function
-        await addProject(newProject);
+        // Insert in DB
+        const { error } = await supabase
+          .from("projects")
+          .insert({
+            title: values.title,
+            description: values.description,
+            technologies: technologiesArray,
+            github_url: values.github_url || "",
+            demo_url: values.demo_url || "",
+            image_url: imageUrl,
+            profile_id: PROFILE_ID,
+          });
+        if (error) throw error;
         toast.success('Project added successfully');
       }
-      
-      // Reset form after successful save
+      await fetchProjects();
       resetForm();
     } catch (error: any) {
-      console.error(isEditing ? "Error updating project:" : "Error adding project:", error);
+      setUploading(false);
       toast.error(`${isEditing ? 'Update' : 'Add'} failed: ${error.message}`);
     }
   };
-  
+
   const handleDeleteProject = async (id: string) => {
     try {
-      console.log(`Deleting project with ID: ${id}`);
-      
-      if (!user) {
-        throw new Error("You must be logged in to delete projects");
-      }
-      
-      // Confirm with user
-      if (!confirm("Are you sure you want to delete this project?")) {
-        return;
-      }
-      
-      // Use the DataContext's function to remove the project
-      await removeProject(id);
-      
-      // If we were editing this project, reset the form
-      if (id === editingProjectId) {
-        resetForm();
-      }
-      
+      if (!user) throw new Error("You must be logged in to delete projects");
+      if (!confirm("Are you sure you want to delete this project?")) return;
+      const { error } = await supabase
+        .from("projects")
+        .delete()
+        .eq("id", id)
+        .eq("profile_id", PROFILE_ID);
+      if (error) throw error;
+      await fetchProjects();
+      if (id === editingProjectId) resetForm();
       toast.success('Project deleted successfully');
     } catch (error: any) {
-      console.error("Error deleting project:", error);
       toast.error('Delete failed: ' + error.message);
     }
   };
@@ -258,7 +252,11 @@ export function ProjectsManager() {
                 <div className="flex items-center space-x-6">
                   <div className="relative w-32 h-32 rounded-md overflow-hidden border-2 border-gray-200 shadow-md">
                     <img 
-                      src={newProjectImage || form.getValues("image_url") || "/placeholder.svg"} 
+                      src={
+                        pendingImageFile
+                          ? URL.createObjectURL(pendingImageFile)
+                          : newProjectImage || form.getValues("image_url") || "/placeholder.svg"
+                      }
                       alt="Project" 
                       className="w-full h-full object-cover"
                       onError={(e) => {
@@ -275,14 +273,14 @@ export function ProjectsManager() {
                       className="flex items-center"
                     >
                       <Upload className="mr-2 h-4 w-4" />
-                      {uploading ? 'Uploading...' : 'Upload Image'}
+                      {uploading ? 'Uploading...' : 'Select Image'}
                     </Button>
                     <input
                       id="project-image-upload"
                       type="file"
                       accept="image/*"
                       className="hidden"
-                      onChange={handleImageUpload}
+                      onChange={handleImageSelect}
                       disabled={uploading}
                     />
                     <p className="text-xs text-gray-500 mt-2">
@@ -376,6 +374,7 @@ export function ProjectsManager() {
               <Button 
                 type="submit" 
                 className="bg-portfolio-purple hover:bg-portfolio-purple/90 transition-all duration-300 transform hover:scale-105"
+                disabled={uploading}
               >
                 {isEditing ? 'Update Project' : 'Add Project'}
               </Button>
@@ -396,7 +395,7 @@ export function ProjectsManager() {
           </CardHeader>
           <CardContent>
             <div className="grid gap-4">
-              {projects.map((project, index) => (
+              {projects.map((project) => (
                 <div key={project.id} className="flex items-center justify-between p-4 rounded-md shadow-sm border border-gray-200">
                   <div className="flex items-center gap-4">
                     <div className="w-12 h-12 rounded-md overflow-hidden border border-gray-200">
