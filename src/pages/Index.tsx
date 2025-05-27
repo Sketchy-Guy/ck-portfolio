@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from "react";
 import Hero from "@/components/Hero";
 import About from "@/components/About";
@@ -106,12 +105,24 @@ const Index = () => {
       <Header />
       
       <main className="flex-grow">
-        <Hero />
-        <About />
-        <Skills />
-        <Projects />
-        <Certifications />
-        <Contact />
+        <section id="home">
+          <Hero />
+        </section>
+        <section id="about">
+          <About />
+        </section>
+        <section id="skills">
+          <Skills />
+        </section>
+        <section id="projects">
+          <Projects />
+        </section>
+        <section id="certifications">
+          <Certifications />
+        </section>
+        <section id="contact">
+          <Contact />
+        </section>
       </main>
       
       <Footer />

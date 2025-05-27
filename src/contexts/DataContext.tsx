@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -134,6 +133,18 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         throw certificationsError;
       }
       
+      // Fetch about data
+      const { data: aboutData, error: aboutError } = await (supabase as any)
+        .from('about_me') // or 'about', depending on your table name
+        .select('*')
+        .eq('profile_id', user.id)
+        .order('order', { ascending: true });
+      
+      if (aboutError) {
+        console.error("Error fetching about data:", aboutError);
+        throw aboutError;
+      }
+      
       // Convert database data to application format
       const socialLinks = {
         github: socialData?.find(link => link.platform === 'github')?.url || defaultData.user.social.github,
@@ -177,7 +188,17 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
           credential: cert.credential || '',
           link: cert.link || '',
           logo: cert.logo_url || ''
-        })) : defaultData.certifications
+        })) : defaultData.certifications,
+        about: aboutData?.length ? aboutData.map(item => ({
+          id: item.id.toString(),
+          type: item.type,
+          title: item.title,
+          subtitle: item.subtitle,
+          description: item.description,
+          period: item.period,
+          order: item.order,
+          profile_id: item.profile_id
+        })) : defaultData.about
       });
       
       console.log("Portfolio data fetched and updated successfully");

@@ -3,7 +3,7 @@ import { Menu, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 const navLinks = [
-	{ title: "Home", href: "#" },
+	{ title: "Home", href: "#home" },
 	{ title: "About", href: "#about" },
 	{ title: "Skills", href: "#skills" },
 	{ title: "Projects", href: "#projects" },
@@ -67,7 +67,13 @@ const Header = () => {
 											? "text-portfolio-purple font-semibold"
 											: "text-gray-800 dark:text-gray-200"
 									}`}
-									onClick={() => setActiveSection(link.title)}
+									onClick={(e) => {
+										setActiveSection(link.title);
+										if (link.href === "#home") {
+											e.preventDefault();
+											window.scrollTo({ top: 0, behavior: "smooth" });
+										}
+									}}
 								>
 									{link.title}
 									{/* Sliding underline */}
@@ -141,15 +147,18 @@ const Header = () => {
 										? "text-portfolio-purple font-semibold"
 										: "text-gray-900"
 								}`}
-								onClick={() => {
+								onClick={e => {
 									setIsMenuOpen(false);
 									setActiveSection(link.title);
+									if (link.href === "#home") {
+										e.preventDefault();
+										window.scrollTo({ top: 0, behavior: "smooth" });
+									}
 								}}
 							>
 								{link.title}
 							</a>
 						))}
-
 						<Button
 							className="bg-portfolio-purple hover:bg-portfolio-purple/90 w-full mt-4 text-white"
 							onClick={() => {

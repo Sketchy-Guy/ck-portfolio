@@ -191,3 +191,7 @@
   60% { transform: rotate(4deg) scale(1.08); }
   75% { transform: rotate(-2deg) scale(1.05); }
 }
+
+html {
+    scroll-behavior: smooth;
+}

@@ -1,4 +1,3 @@
-
 export interface UserData {
   name: string;
   title: string;
@@ -42,11 +41,23 @@ export interface CertificationData {
   logo: string;
 }
 
+export interface AboutItem {
+  id?: string;
+  type: string;
+  title: string;
+  subtitle: string;
+  description: string;
+  period: string;
+  order: number;
+  profile_id?: string;
+}
+
 export interface PortfolioData {
   user: UserData;
   skills: SkillData[];
   projects: ProjectData[];
   certifications: CertificationData[];
+  about: AboutItem[]; // <-- Add this line
 }
 
 // Default data for the portfolio
@@ -143,5 +154,6 @@ export const defaultData: PortfolioData = {
       credential: "In Progress",
       logo: "/lovable-uploads/84ae8bec-4c2f-4a49-94cf-34673064b572.png",
     },
-  ]
+  ],
+  about: [] // Initialize with an empty array or provide default about items
 };

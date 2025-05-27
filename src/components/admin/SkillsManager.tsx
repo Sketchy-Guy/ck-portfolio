@@ -127,8 +127,6 @@ export function SkillsManager() {
     };
 
     try {
-      addSkill(newSkill);
-
       const { error } = await supabase
         .from('skills')
         .insert({

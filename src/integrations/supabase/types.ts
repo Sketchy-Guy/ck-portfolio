@@ -9,6 +9,50 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      about_me: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          order: number | null
+          period: string | null
+          profile_id: string | null
+          subtitle: string | null
+          title: string | null
+          type: string | null
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          order?: number | null
+          period?: string | null
+          profile_id?: string | null
+          subtitle?: string | null
+          title?: string | null
+          type?: string | null
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          order?: number | null
+          period?: string | null
+          profile_id?: string | null
+          subtitle?: string | null
+          title?: string | null
+          type?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "about_me_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "user_profile"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       auth_users: {
         Row: {
           created_at: string | null
@@ -120,6 +164,27 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      site_likes: {
+        Row: {
+          count: number | null
+          created_at: string
+          id: number
+          visits: number | null
+        }
+        Insert: {
+          count?: number | null
+          created_at?: string
+          id?: number
+          visits?: number | null
+        }
+        Update: {
+          count?: number | null
+          created_at?: string
+          id?: number
+          visits?: number | null
+        }
+        Relationships: []
       }
       skills: {
         Row: {

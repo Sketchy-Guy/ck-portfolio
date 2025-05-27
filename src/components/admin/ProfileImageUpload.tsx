@@ -26,8 +26,7 @@ export function ProfileImageUpload({
   const [cropperOpen, setCropperOpen] = useState(false);
   const [cropperSrc, setCropperSrc] = useState<string>("");
   const [imageLoaded, setImageLoaded] = useState(false);
-  const [imageTimestamp, setImageTimestamp] = useState(Date.now());
-  
+
   // Default fallback image if current image fails to load
   const fallbackImage = "/lovable-uploads/78295e37-4b4d-4900-b613-21ed6626ab3f.png";
 
@@ -39,28 +38,21 @@ export function ProfileImageUpload({
         const result = await ensureStorageBucket();
         if (!result.success) {
           console.warn("Storage setup issue:", result.message);
-          // Don't show toast here, it's already shown at the app level
         }
       } catch (err) {
         console.error("Error checking storage:", err);
       }
     };
-    
     checkStorage();
-    
-    // Force refresh the image cache
-    setImageTimestamp(Date.now());
-    setImageLoaded(false);
-    
+
     // Only use fallback if currentImageUrl is empty or invalid
     if (!currentImageUrl || currentImageUrl.includes("null")) {
       setImagePreview(fallbackImage);
     } else {
-      // Always use the latest from DB with cache-busting
-      setImagePreview(`${currentImageUrl}?t=${imageTimestamp}`);
+      setImagePreview(currentImageUrl);
     }
     setImageLoaded(false);
-  }, [currentImageUrl, imageTimestamp]);
+  }, [currentImageUrl]);
 
   const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -84,8 +76,6 @@ export function ProfileImageUpload({
   const handleCropCancel = () => {
     setCropperOpen(false);
     setSelectedFile(null);
-    
-    // Clean up object URL to prevent memory leaks
     if (cropperSrc) {
       URL.revokeObjectURL(cropperSrc);
       setCropperSrc("");
@@ -132,8 +122,6 @@ export function ProfileImageUpload({
       console.error("Error uploading image:", error);
       setUploadError(error.message || "There was an error uploading your image");
       toast.error('Upload failed: ' + error.message);
-      
-      // Set fallback image if upload fails
       setImagePreview(fallbackImage);
       setImageLoaded(true);
     } finally {
