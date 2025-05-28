@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Download, Github, Linkedin, Twitter, Instagram, Facebook, Heart } from "lucide-react";
+import { Download, Github, Linkedin, Twitter, Instagram, Facebook, Heart, Mail } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import Cookies from "js-cookie"; // npm install js-cookie
-import "./HeroGradient.css"; // <-- create this file as shown below
+import Cookies from "js-cookie";
+import "./HeroGradient.css";
 
 // Supabase constants
 const SUPABASE_URL = "https://lvjfqefqrmgzwkhtknbj.supabase.co";
@@ -15,8 +15,9 @@ const LIKE_KEY = "site_like_given";
 const VISIT_KEY = "site_visit_given";
 
 const Hero = () => {
-  // State for profile image, title, social links, like/visit counts, errors, and animation
+  // State for profile image, name, title, social links, email, like/visit counts, errors, and animation
   const [profileImage, setProfileImage] = useState<string | null>(null);
+  const [profileName, setProfileName] = useState(""); // <-- NEW
   const [imageError, setImageError] = useState(false);
   const [imageLoaded, setImageLoaded] = useState(false);
   const [typedText, setTypedText] = useState("");
@@ -28,18 +29,20 @@ const Hero = () => {
     instagram: "",
     facebook: "",
   });
+  const [emails, setEmails] = useState<string[]>([]); // <-- NEW
   const [likeCount, setLikeCount] = useState(0);
   const [visitCount, setVisitCount] = useState(0);
   const [likeError, setLikeError] = useState("");
   const [heartBeat, setHeartBeat] = useState(false);
+  const [profileEmail, setProfileEmail] = useState(""); // <-- Add this
 
-  // Fetch profile image and title from Supabase
+  // Fetch profile image, name, title, and email from Supabase
   useEffect(() => {
     const fetchProfileData = async () => {
       try {
         const { data, error } = await supabase
           .from("user_profile")
-          .select("profile_image, title")
+          .select("profile_image, title, name, email")
           .eq("id", PROFILE_ID)
           .single();
 
@@ -54,6 +57,8 @@ const Hero = () => {
             setProfileImage(imageUrl);
           }
           setProfileTitle(data.title || "");
+          setProfileName(data.name || "");
+          setProfileEmail(data.email || ""); // <-- Set email
         }
       } catch (err) {
         console.error("Error fetching profile data:", err);
@@ -106,6 +111,28 @@ const Hero = () => {
     fetchSocialLinks();
   }, []);
 
+  // Fetch emails from Supabase (assuming you have a table or field for emails)
+  useEffect(() => {
+    const fetchEmails = async () => {
+      try {
+        // Try to fetch from user_profile table, assuming 'emails' is a text[] or a single email field
+        const { data, error } = await supabase
+          .from("user_profile")
+          .select("email")
+          .eq("id", PROFILE_ID)
+          .single();
+
+        if (!error && data && data.email) {
+          // If email is a string, wrap in array for consistency
+          setEmails(Array.isArray(data.email) ? data.email : [data.email]);
+        }
+      } catch (err) {
+        setEmails([]);
+      }
+    };
+    fetchEmails();
+  }, []);
+
   // Fetch like and visit counts from Supabase
   useEffect(() => {
     const fetchCounts = async () => {
@@ -144,7 +171,6 @@ const Hero = () => {
     const alreadyVisited = localStorage.getItem(VISIT_KEY) || Cookies.get(VISIT_KEY);
     if (!alreadyVisited) {
       const incrementVisits = async () => {
-        // 1. Fetch the latest visits count from DB
         const { data, error } = await supabase
           .from("site_likes" as any)
           .select("visits")
@@ -152,12 +178,10 @@ const Hero = () => {
           .single();
         if (!error && data) {
           const latestVisits = (data as any).visits || 0;
-          // 2. Increment in DB using the latest value
           await supabase
             .from("site_likes" as any)
             .update({ visits: latestVisits + 1 })
             .eq("id", SITE_LIKES_ID);
-          // 3. Set local/cookie so it only happens once
           localStorage.setItem(VISIT_KEY, "1");
           Cookies.set(VISIT_KEY, "1", { expires: 365 });
         }
@@ -216,9 +240,7 @@ const Hero = () => {
     <section
       className="min-h-screen flex flex-col justify-center pt-8 sm:pt-12 md:pt-20 pb-8 bg-white dark:bg-portfolio-dark-blue"
     >
-      {/* Responsive wrapper with full width and responsive padding */}
       <div className="w-full px-2 sm:px-4 md:px-8">
-        {/* Responsive flex: stacks on mobile, row on large screens */}
         <div className="flex flex-col-reverse lg:flex-row items-center gap-8 sm:gap-10 md:gap-16 lg:gap-24 w-full">
           {/* Left: Text and Socials */}
           <div className="w-full lg:w-1/2 animate-fade-in">
@@ -226,9 +248,15 @@ const Hero = () => {
               Hello, I'm
             </h3>
             <h1
-              className="animated-gradient-text text-2xl sm:text-4xl md:text-6xl lg:text-7xl font-bold mb-4 leading-tight break-words w-full"
+              className="animated-gradient-text text-2xl sm:text-4xl md:text-6xl lg:text-7xl font-bold mb-4 break-words w-full"
+              style={{
+                lineHeight: "1.1",
+                wordBreak: "break-word",
+                whiteSpace: "pre-line", // allow dynamic line breaks
+                letterSpacing: "0.01em",
+              }}
             >
-              Chinmay Kumar Panda
+              {profileName || "Loading..."}
             </h1>
             <h2 className="text-sm sm:text-lg md:text-2xl font-medium text-gray-600 dark:text-gray-300 mb-6 leading-relaxed break-words w-full">
               {typedText}
@@ -292,6 +320,18 @@ const Hero = () => {
                   className="text-gray-600 hover:text-portfolio-purple transition-colors"
                 >
                   <Facebook size={24} />
+                </a>
+              )}
+              {/* Email Icon */}
+              {profileEmail && (
+                <a
+                  href={`https://mail.google.com/mail/?view=cm&to=${profileEmail}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label="Email"
+                  className="text-gray-600 hover:text-portfolio-purple transition-colors"
+                >
+                  <Mail size={24} />
                 </a>
               )}
             </div>
